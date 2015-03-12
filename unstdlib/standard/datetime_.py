@@ -4,7 +4,7 @@ import datetime
 
 __all__ = ['iterate_date', 'iterate_date_values', 'isoformat_as_datetime',
            'truncate_datetime', 'now', 'datetime_from_timestamp',
-           'timestamp_from_datetime']
+           'timestamp_from_datetime', 'Period']
 
 
 def iterate_date(start, stop=None, step=datetime.timedelta(days=1)):
@@ -158,6 +158,176 @@ class _UTC(datetime.tzinfo):
 
     def dst(self, dt):
         return _ZERO
+
+
+class Period(object):
+    def __init__(self, start, end=None):
+        """
+        Given a start date ``start`` and an opional end date ``date``, return a Period between
+        these dates.
+
+        End date defaults to today.
+
+        Example::
+
+            >>> start = datetime.date(2010, 1, 5)
+            >>> end = datetime.date(2010, 5, 10)
+            >>> period = Period(start, end)
+            >>> str(period.start)
+            '2010-01-05'
+            >>> str(period.end)
+            '2010-05-10'
+            
+            >>> period = Period(datetime.date(2010, 1, 5))
+            >>> datetime.date.today() == period.end
+            True
+        """
+        self.start = start
+        self.end = end or datetime.date.today()
+        if self.start > self.end:
+            raise AssertionError('Start (%s) must be before end Ende (%s)' % (self.start, self.end))
+
+    def contains(self, a_date):
+        """
+        Test whether a given date is within this ``Period``, return ``True`` or ``False``.
+        
+        The test is inclusive, so start and end are within this ``Period``.
+
+        Example::
+            >>> period = Period(datetime.date(2010, 1, 5), datetime.date(2010, 5, 10))
+            
+            >>> period.contains(datetime.date(2010, 2, 10))
+            True
+            
+            >>> period.contains(datetime.date(2010, 1, 5))
+            True
+            
+            >>> period.contains(datetime.date(2010, 1, 4))
+            False
+            
+            >>> period.contains(datetime.date(2010, 5, 11))
+            False
+        """
+        return (self.start <= a_date) and (a_date <= self.end)
+
+    def __contains__(self, a_date):
+        """
+        Test whether a given date is within this ``Period`` using the in statement.
+        
+        Example::
+            >>> period = Period(datetime.date(2010, 1, 5), datetime.date(2010, 5, 10))
+            
+            >>> datetime.date(2010, 2, 10) in period
+            True
+            
+            >>> datetime.date(2010, 1, 5) in period
+            True
+            
+            >>> datetime.date(2010, 1, 4) in period
+            False
+            
+            >>> datetime.date(2010, 5, 11) in period
+            False
+        """
+        return self.contains(a_date)
+
+    def contains_completely(self, period):
+        """
+        Test this ``Period`` contains all dates of another given ``Period``.
+        
+        Example::
+            >>> period = Period(datetime.date(2010, 1, 5), datetime.date(2010, 5, 10))
+            >>> period.contains_completely(period)
+            True
+            
+            >>> period.contains_completely(Period(datetime.date(2010, 1, 10), datetime.date(2010, 4, 1)))
+            True
+            
+            >>> period.contains_completely(Period(datetime.date(2010, 1, 4), datetime.date(2010, 4, 1)))
+            False
+            
+            >>> period.contains_completely(Period(datetime.date(2010, 1, 5), datetime.date(2010, 5, 11)))
+            False
+        """
+        return self.contains(period.start) and self.contains(period.end)
+
+    def overlaps(self, period):
+        """
+        Test whether this ``Period`` shares at least one date with another ``Period``,
+        including start and end dates.
+        
+        Example::
+            >>> period = Period(datetime.date(2010, 1, 5), datetime.date(2010, 5, 10))
+            >>> period.overlaps(Period(datetime.date(2009, 1, 1), datetime.date(2010, 1, 5)))
+            True
+            
+            >>> period.overlaps(Period(datetime.date(2010, 5, 10), datetime.date(2010, 5, 31)))
+            True
+            
+            >>> period.overlaps(Period(datetime.date(2010, 2, 1), datetime.date(2010, 2, 15)))
+            True
+            
+            >>> period.overlaps(Period(datetime.date(2009, 1, 11), datetime.date(2011, 1, 1)))
+            True
+            
+            >>> period.overlaps(Period(datetime.date(2009, 1, 1), datetime.date(2010, 1, 4)))
+            False
+            
+            >>> period.overlaps(Period(datetime.date(2010, 5, 11), datetime.date(2010, 5, 31)))
+            False
+            
+        """
+        return self.contains(period.start) or self.contains(period.end) \
+            or period.contains_completely(self)
+
+    def __repr__(self):
+        return 'Period(%s, %s)' % (self.start, self.end)
+
+    def __ne__(self, other):
+        """
+        Test whether this ``Period`` differs from another period, i.e.
+        their start or end dates are different or both.
+        
+        Example::
+            >>> period = Period(datetime.date(2010, 1, 5), datetime.date(2010, 5, 10))
+            
+            >>> period != Period(datetime.date(2010, 1, 5), datetime.date(2010, 5, 3))
+            True
+            
+            >>> period != Period(datetime.date(2010, 1, 6), datetime.date(2010, 5, 10))
+            True
+            
+            >>> period != Period(datetime.date(2010, 1, 5), datetime.date(2010, 5, 10))
+            False
+            
+            >>> False != period
+            True
+            
+            >>> [] != period
+            True
+        """
+        return not (self == other)
+
+    def __eq__(self, other):
+        """
+        Test whether this ``Period`` is equal to another period to support, i.e.
+        their start and end dates are equal.
+        
+        Example::
+            >>> period = Period(datetime.date(2010, 1, 5), datetime.date(2010, 5, 10))
+            
+            >>> period == period
+            True
+            
+            >>> period == Period(datetime.date(2010, 1, 5), datetime.date(2010, 5, 10))
+            True
+            
+            >>> period == Period(datetime.date(2010, 1, 6), datetime.date(2010, 5, 10))
+            False
+        """
+        if not isinstance(other, Period):
+            return False
+        return (self.start == other.start) and (self.end == other.end)
 
 
 if __name__ == "__main__":
