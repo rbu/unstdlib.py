@@ -146,6 +146,87 @@ def iterate_flatten(q):
     return chain.from_iterable(q)
 
 
+def unique(iterable_with_duplicates):
+    """
+    Produce a duplicate-free version of the iterable, preserving the order.
+
+    Example:
+        >>> list(unique(range(3)))
+        [0, 1, 2]
+
+        >>> list(unique([2, 3, 2, 3, 1, 4, 2]))
+        [2, 3, 1, 4]
+    """
+    seen = set()
+    for item in iterable_with_duplicates:
+        if item in seen:
+            continue
+        yield item
+        seen.add(item)
+
+def uniquify(generator):
+    """
+    Decorator producing a duplicate-free version of a method's results,
+    preserving the order. Higher order version of ``unique``.
+
+    Example:
+        >>> @uniquify
+        ... def some_numbers():
+        ...     return range(3)
+        >>> list(some_numbers())
+        [0, 1, 2]
+
+        >>> @uniquify
+        ... def some_numbers():
+        ...     return [2, 3, 2, 3, 1, 4, 2]
+        >>> list(some_numbers())
+        [2, 3, 1, 4]
+    """
+    @wraps(generator)
+    def patched(*args, **kwargs):
+        results = generator(*args, **kwargs)
+        return unique(results)
+    return patched
+
+def sortify(generator=None, cmp=None, key=None, reverse=False):
+    """
+    Decorator producing a sorted version of a method's results.
+    Higher order version of ``sorted``.
+
+    Additional parameters ``cmp``, ``key`` and ``reverse`` are
+    given to ``sorted``.
+
+    Example:
+        >>> @sortify(reverse=True)
+        ... def some_numbers():
+        ...     return range(3)
+        >>> list(some_numbers())
+        [2, 1, 0]
+
+        >>> @sortify
+        ... def some_numbers():
+        ...     return [2, 3, 2, 3, 1, 4, 2]
+        >>> list(some_numbers())
+        [1, 2, 2, 2, 3, 3, 4]
+    """
+
+    # sorted does not allow passing key=None and cmp=None at the same time
+    sorted_args = dict(reverse=reverse, key=key, cmp=cmp)
+    if cmp is None:
+        del sorted_args['cmp']
+    if key is None:
+        del sorted_args['key']
+
+    def sortify_return(generator):
+        @wraps(generator)
+        def patched(*args, **kwargs):
+            return sorted(generator(*args, **kwargs), **sorted_args)
+        return patched
+
+    if generator is None:
+        return sortify_return
+    return sortify_return(generator)
+
 def listify(fn=None, wrapper=list):
     """
     A decorator which wraps a function's return value in ``list(...)``.
