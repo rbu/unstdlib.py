@@ -1,4 +1,4 @@
-from itertools import chain
+from itertools import chain, tee
 from functools import wraps
 from collections import defaultdict
 
@@ -144,6 +144,32 @@ def iterate_flatten(q):
     """
 
     return chain.from_iterable(q)
+
+def partition(iterable, predicate=bool):
+    """
+    Partition an iterable into two iterables of elements matching a predicate
+    function and those not matching. If no predicate function is provided,
+    defaults to bool(item).
+
+    Example::
+        >>> passing, failing = partition(xrange(6), lambda x: x % 2 == 0)
+
+        >>> list(passing)
+        [0, 2, 4]
+
+        >>> list(failing)
+        [1, 3, 5]
+
+    """
+    # Ensure we only calculate predicate(i) once
+    seq1, seq2 = tee(
+        (i, predicate(i))
+        for i in iterable
+    )
+    return (
+        (i for i, passed in seq1 if     passed),
+        (i for i, passed in seq2 if not passed),
+    )
 
 
 def listify(fn=None, wrapper=list):
