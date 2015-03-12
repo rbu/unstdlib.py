@@ -9,7 +9,7 @@ from unstdlib.six.moves import xrange
 __all__ = [
     'groupby_count',
     'iterate', 'is_iterable', 'iterate_chunks', 'iterate_items', 'iterate_flatten',
-    'listify',
+    'listify', 'tuplify', 'setify', 'dictify',
 ]
 
 
@@ -177,6 +177,59 @@ def listify(fn=None, wrapper=list):
     if fn is None:
         return listify_return
     return listify_return(fn)
+
+def tuplify(fn):
+    """
+    A decorator which wraps a function's return value in ``tuple(...)``.
+
+    Shortcut to wrapping  with ``@listify(wrapper=tuple)``.
+
+    Example::
+
+        >>> @tuplify
+        ... def get_lengths_tuple(iterable):
+        ...     for i in iterable:
+        ...         yield len(i)
+        >>> get_lengths_tuple(["foo", "bar"])
+        (3, 3)
+    """
+    return listify(wrapper=tuple)(fn)
+
+def setify(fn):
+    """
+    A decorator which wraps a function's return value in ``set(...)``.
+
+    Shortcut to wrapping with ``@listify(wrapper=set)``.
+
+    Example::
+
+        >>> @setify
+        ... def get_lengths_set(iterable):
+        ...     for i in iterable:
+        ...         yield len(i)
+        >>> set([3]) == get_lengths_set(["foo", "bar"])
+        True
+    """
+    return listify(wrapper=set)(fn)
+
+def dictify(fn):
+    """
+    A decorator which wraps a function's return value in ``dict(...)``.
+
+    Your dectorator should return pairs of (key, value) for this to be useful.
+
+    Shortcut to wrapping with ``@listify(wrapper=dict)``.
+
+    Example::
+
+        >>> @dictify
+        ... def get_lengths_dict(iterable):
+        ...     for i in iterable:
+        ...         yield i, len(i)
+        >>> get_lengths_dict(["short", "ratherlong"]) == {'ratherlong': 10, 'short': 5}
+        True
+    """
+    return listify(wrapper=dict)(fn)
 
 
 if __name__ == "__main__":
